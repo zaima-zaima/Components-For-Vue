@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { EachData } from "../types/Carousel";
-import { onMounted, watch, ref, Ref, reactive } from "vue";
+import { onMounted, watch, ref, Ref, reactive, onBeforeUnmount } from "vue";
 
 interface Props {
   auto: boolean;
@@ -56,10 +56,12 @@ const state = reactive({
   lock: false,
   curPos: 0,
   totalDes: 0,
+  moving: false,
 });
 
 const moveContainer = ref() as Ref<HTMLElement>;
-let timer: null | number = null;
+let timer: undefined | number;
+let timerout: undefined | number;
 
 onMounted(() => {
   state.curPos = moveContainer.value.offsetLeft;
@@ -76,19 +78,22 @@ watch(
 );
 
 function init() {
-  if (timer) {
-    clearInterval(timer);
-  }
-
-  timer = setInterval(function () {
+  clearTimeout(timerout);
+  timerout = setTimeout(() => {
     emits("toggle", state.current);
     startMove(state.curPos, props.width, state.speed);
   }, 3000);
+
+  // timer = setInterval(function () {
+  //   emits("toggle", state.current);
+  // }, 3000);
 }
 
 function pased() {
-  timer && clearInterval(timer);
-  timer = null;
+  if (!state.moving) {
+    timer && clearInterval(timer);
+    timer = undefined;
+  }
 }
 
 function proceed() {
@@ -101,14 +106,14 @@ function startMove(curPos: number, destination: number, speed: number) {
   }
 
   state.lock = true;
+  state.moving = true;
 
   state.totalDes = destination - curPos;
   const toggleDes = 10;
   const times = Math.floor(state.totalDes / toggleDes);
   let curTimes = 0;
-  console.log(state.current);
-
-  let timer = setInterval(() => {
+  clearInterval(timer);
+  timer = setInterval(() => {
     curTimes++;
 
     state.offset -= toggleDes;
@@ -116,6 +121,7 @@ function startMove(curPos: number, destination: number, speed: number) {
     if (curTimes >= times) {
       clearInterval(timer);
       state.lock = false;
+      state.moving = false;
 
       if (state.current === props.data.length - 1) {
         state.current = 0;
@@ -125,7 +131,13 @@ function startMove(curPos: number, destination: number, speed: number) {
     }
   }, speed);
   state.current++;
+  init();
 }
+
+onBeforeUnmount(() => {
+  clearInterval(timer);
+  clearTimeout(timerout);
+});
 </script>
 
 <style scoped lang="less">
